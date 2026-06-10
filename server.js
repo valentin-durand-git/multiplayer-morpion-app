@@ -14,6 +14,7 @@ io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
   socket.on('find-game', () => {
+    console.log(`find-game reçu de ${socket.id}`);
     addToQueue(socket, io);
   });
 
