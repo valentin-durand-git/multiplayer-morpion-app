@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MORPION // ONLINE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cyan: #00f5ff;
+      --violet: #bf00ff;
+      --dark: #050510;
+      --panel: #0a0a1f;
+      --border: #1a1a3e;
+    }
+
+    body {
+      background: var(--dark);
+      color: #fff;
+      font-family: 'Orbitron', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Grille d'arrière-plan */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: 0.3em;
+      color: var(--cyan);
+      text-shadow: 0 0 20px var(--cyan), 0 0 60px var(--cyan);
+      margin-bottom: 0.4em;
+    }
+
+    #status {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      color: #888;
+      margin-bottom: 2.5em;
+      min-height: 1.2em;
+      transition: color 0.3s;
+    }
+
+    #status.active { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+    #status.error  { color: #ff4466; text-shadow: 0 0 8px #ff4466; }
+
+    /* Plateau */
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 110px);
+      grid-template-rows: repeat(3, 110px);
+      gap: 6px;
+      position: relative;
+    }
+
+    .cell {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8rem;
+      font-weight: 900;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+
+    .cell:hover:not(.taken) {
+      border-color: var(--cyan);
+      background: #0d0d25;
+    }
+
+    .cell.taken { cursor: default; }
+
+    .cell.X { color: var(--cyan); text-shadow: 0 0 16px var(--cyan); }
+    .cell.O { color: var(--violet); text-shadow: 0 0 16px var(--violet); }
+
+    /* Cellule gagnante */
+    .cell.winner {
+      animation: winPulse 0.6s ease forwards;
+    }
+    @keyframes winPulse {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.15); box-shadow: 0 0 30px var(--cyan); }
+      100% { transform: scale(1); }
+    }
+    .cell.winner.O { animation-name: winPulseO; }
+    @keyframes winPulseO {
+      50% { box-shadow: 0 0 30px var(--violet); }
+    }
+
+    /* ── Effets par case ── */
+
+    /* plasma */
+    .cell.fx-plasma::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle, rgba(0,245,255,0.5) 0%, transparent 70%);
+      animation: fxPlasma 0.5s ease-out forwards;
+    }
+    @keyframes fxPlasma {
+      from { opacity: 1; transform: scale(0.2); }
+      to   { opacity: 0; transform: scale(2); }
+    }
+
+    /* glitch */
+    .cell.fx-glitch {
+      animation: fxGlitch 0.4s steps(2) forwards;
+    }
+    @keyframes fxGlitch {
+      0%  { transform: translate(0); filter: none; }
+      20% { transform: translate(-4px, 2px); filter: hue-rotate(90deg) saturate(3); }
+      40% { transform: translate(4px, -2px); filter: hue-rotate(-90deg) saturate(3); }
+      60% { transform: translate(-2px, 0); filter: hue-rotate(45deg); }
+      80% { transform: translate(2px, 2px); filter: none; }
+      100%{ transform: translate(0); filter: none; }
+    }
+
+    /* pulse */
+    .cell.fx-pulse::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid var(--cyan);
+      animation: fxPulse 0.5s ease-out forwards;
+    }
+    @keyframes fxPulse {
+      from { transform: scale(0.3); opacity: 1; }
+      to   { transform: scale(2.5); opacity: 0; }
+    }
+
+    /* hologram (O) */
+    .cell.fx-hologram {
+      animation: fxHologram 0.5s steps(4) forwards;
+    }
+    @keyframes fxHologram {
+      0%  { opacity: 0.1; clip-path: inset(80% 0 0 0); }
+      25% { opacity: 0.6; clip-path: inset(50% 0 0 0); }
+      50% { opacity: 0.3; clip-path: inset(20% 0 0 0); }
+      75% { opacity: 0.8; clip-path: inset(5% 0 0 0); }
+      100%{ opacity: 1;   clip-path: inset(0% 0 0 0); }
+    }
+
+    /* flare (O) */
+    .cell.fx-flare::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle, rgba(191,0,255,0.6) 0%, transparent 70%);
+      animation: fxFlare 0.6s ease-out forwards;
+    }
+    @keyframes fxFlare {
+      0%   { opacity: 1; transform: scale(0.1) rotate(0deg); }
+      100% { opacity: 0; transform: scale(2.5) rotate(180deg); }
+    }
+
+    /* matrix (O) */
+    .cell.fx-matrix::before {
+      content: '01101 10010 01011';
+      position: absolute;
+      inset: 0;
+      font-size: 0.5rem;
+      color: var(--violet);
+      opacity: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      word-break: break-all;
+      animation: fxMatrix 0.5s ease-out forwards;
+    }
+    @keyframes fxMatrix {
+      0%  { opacity: 0.8; transform: scale(1.3); }
+      100%{ opacity: 0; transform: scale(1); }
+    }
+
+    /* Écran d'état (attente / fin de partie) */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5,5,16,0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5em;
+      z-index: 10;
+      backdrop-filter: blur(4px);
+    }
+
+    #overlay.hidden { display: none; }
+
+    #overlay-title {
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: 0.3em;
+      text-align: center;
+    }
+
+    #overlay-sub {
+      font-size: 0.8rem;
+      letter-spacing: 0.2em;
+      color: #666;
+      text-align: center;
+    }
+
+    #btn-play {
+      margin-top: 1em;
+      padding: 0.8em 2.5em;
+      background: transparent;
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    #btn-play:hover {
+      background: rgba(0,245,255,0.1);
+      box-shadow: 0 0 20px var(--cyan);
+    }
+
+    /* Animation de chargement (attente adversaire) */
+    .dot-loader::after {
+      content: '';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      25%  { content: '.'; }
+      50%  { content: '..'; }
+      75%  { content: '...'; }
+      100% { content: ''; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Overlay (menu + états) -->
+  <div id="overlay">
+    <div id="overlay-title" style="color: var(--cyan);">MORPION<br/>// ONLINE</div>
+    <div id="overlay-sub">CONNEXION EN ATTENTE</div>
+    <button id="btn-play">TROUVER UNE PARTIE</button>
+  </div>
+
+  <h1>MORPION // ONLINE</h1>
+  <div id="status"></div>
+
+  <div id="board">
+    <div class="cell" data-index="0"></div>
+    <div class="cell" data-index="1"></div>
+    <div class="cell" data-index="2"></div>
+    <div class="cell" data-index="3"></div>
+    <div class="cell" data-index="4"></div>
+    <div class="cell" data-index="5"></div>
+    <div class="cell" data-index="6"></div>
+    <div class="cell" data-index="7"></div>
+    <div class="cell" data-index="8"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
