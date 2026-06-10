@@ -1,25 +1,32 @@
-// Joueur en attente d'un adversaire (un seul à la fois)
+const { TicTacToeGame } = require('./game');
+
+// Joueur en attente (un seul à la fois)
 let waitingPlayer = null;
 
-// Parties en cours : { gameId -> { players: [socketX, socketO], board, turn } }
-const games = {};
+// gameId → TicTacToeGame
+const activeGames = new Map();
+
+// socket.id → gameId
+const playerRooms = new Map();
+
+// socket.id → 'X' | 'O'
+const playerSymbols = new Map();
 
 let nextGameId = 1;
 
-function handleFindGame(socket, io) {
+function addToQueue(socket, io) {
   if (waitingPlayer && waitingPlayer.id !== socket.id) {
-    // Un joueur attendait : on crée la partie
+    // Un adversaire attendait : on crée la partie
     const gameId = String(nextGameId++);
     const playerX = waitingPlayer;
     const playerO = socket;
 
-    games[gameId] = {
-      players: [playerX, playerO],
-      board: Array(9).fill(null),
-      turn: 'X',
-    };
+    activeGames.set(gameId, new TicTacToeGame());
+    playerRooms.set(playerX.id, gameId);
+    playerRooms.set(playerO.id, gameId);
+    playerSymbols.set(playerX.id, 'X');
+    playerSymbols.set(playerO.id, 'O');
 
-    // On rattache chaque socket à la room de la partie
     playerX.join(gameId);
     playerO.join(gameId);
 
@@ -42,16 +49,19 @@ function handleDisconnect(socket, io) {
   }
 
   // Chercher si le joueur était dans une partie en cours
-  for (const [gameId, game] of Object.entries(games)) {
-    const isInGame = game.players.some((p) => p.id === socket.id);
-    if (isInGame) {
-      // Notifier l'adversaire
-      socket.to(gameId).emit('opponent-left');
-      // Nettoyer la partie pour éviter les fuites mémoire
-      delete games[gameId];
-      return;
+  const gameId = playerRooms.get(socket.id);
+  if (gameId) {
+    socket.to(gameId).emit('opponent-left');
+    // Nettoyer les deux joueurs de la Map
+    activeGames.get(gameId) && activeGames.delete(gameId);
+    // Retirer tous les joueurs associés à cette partie
+    for (const [id, gid] of playerRooms) {
+      if (gid === gameId) {
+        playerRooms.delete(id);
+        playerSymbols.delete(id);
+      }
     }
   }
 }
 
-module.exports = { handleFindGame, handleDisconnect, games };
+module.exports = { addToQueue, handleDisconnect, activeGames, playerRooms, playerSymbols };

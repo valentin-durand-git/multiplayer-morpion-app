@@ -1,39 +1,45 @@
-const WINNING_COMBINATIONS = [
-  [0, 1, 2], // ligne haute
-  [3, 4, 5], // ligne milieu
-  [6, 7, 8], // ligne basse
-  [0, 3, 6], // colonne gauche
-  [1, 4, 7], // colonne milieu
-  [2, 5, 8], // colonne droite
-  [0, 4, 8], // diagonale
-  [2, 4, 6], // diagonale inverse
+const WINS = [
+  [0, 1, 2], [3, 4, 5], [6, 7, 8], // lignes
+  [0, 3, 6], [1, 4, 7], [2, 5, 8], // colonnes
+  [0, 4, 8], [2, 4, 6],             // diagonales
 ];
 
-// Retourne 'X', 'O', 'draw', ou null si la partie continue
-function checkGameOver(board) {
-  for (const [a, b, c] of WINNING_COMBINATIONS) {
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return board[a];
+class TicTacToeGame {
+  constructor() {
+    this.board = Array(9).fill(null);
+    this.turn = 'X';
+  }
+
+  // Retourne { valid, reason?, symbol?, winner?, isDraw?, board }
+  makeMove(index) {
+    if (this.board[index] !== null) {
+      return { valid: false, reason: 'cell already taken' };
     }
+    if (this.turn !== 'X' && this.turn !== 'O') {
+      return { valid: false, reason: 'invalid turn' };
+    }
+
+    const symbol = this.turn;
+    this.board[index] = symbol;
+    this.turn = symbol === 'X' ? 'O' : 'X';
+
+    const winner = this._checkWinner();
+    const isDraw = !winner && this.board.every((c) => c !== null);
+    return { valid: true, symbol, winner, isDraw, board: this.board };
   }
-  if (board.every((cell) => cell !== null)) return 'draw';
-  return null;
+
+  getState() {
+    return { board: this.board, turn: this.turn };
+  }
+
+  _checkWinner() {
+    for (const [a, b, c] of WINS) {
+      if (this.board[a] && this.board[a] === this.board[b] && this.board[a] === this.board[c]) {
+        return this.board[a];
+      }
+    }
+    return null;
+  }
 }
 
-// Retourne { valid, reason }
-function validateMove(game, index, symbol) {
-  if (game.turn !== symbol) {
-    return { valid: false, reason: 'not your turn' };
-  }
-  if (game.board[index] !== null) {
-    return { valid: false, reason: 'cell already taken' };
-  }
-  return { valid: true };
-}
-
-function applyMove(game, index, symbol) {
-  game.board[index] = symbol;
-  game.turn = symbol === 'X' ? 'O' : 'X';
-}
-
-module.exports = { checkGameOver, validateMove, applyMove };
+module.exports = { TicTacToeGame };
